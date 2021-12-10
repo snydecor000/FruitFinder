@@ -16,34 +16,43 @@ fruit2HSV = rgb2hsv(fruit2);
 fruit3HSV = rgb2hsv(fruit3);
 fruit4HSV = rgb2hsv(fruit4);
 
+% imwrite(fruit1HSV, 'fruit1HSV.jpg');
+% imwrite(fruit2HSV, 'fruit2HSV.jpg');
+% imwrite(fruit3HSV, 'fruit3HSV.jpg');
+
 imtool(fruit1HSV);
 imtool(fruit2HSV);
 imtool(fruit3HSV);
 imtool(fruit4HSV);
 %% Thresholds for the Banana
 % Figure 
-img = fruit2;
-imgHSV = fruit2HSV;
+img = fruit3;
+imgHSV = fruit3HSV;
 h = imgHSV(:,:,1);
 s = imgHSV(:,:,2);
 v = imgHSV(:,:,3);
 
-% imgLST = rgb2lst(fruit4);
-% imgLST = double(imgLST);
-% edgesH = imfilter(imgLST,fspecial('sobel')');
-% edgesV = imfilter(imgLST,fspecial('sobel'));
-% edges = sqrt(edgesH.*edgesH + edgesV.*edgesV);
-% 
-% edges = uint8(edges);
-
 maskBanana = zeros(size(imgHSV,1),size(imgHSV,2));
+maskOrange = zeros(size(imgHSV,1),size(imgHSV,2));
+maskApple = zeros(size(imgHSV,1),size(imgHSV,2));
 
-% Banana idxBanana = find((h>0.1 & h<0.2)&(s>0.6 & s<1)&(v>0.4&v<0.85));
-% idxBanana = find((h>0.1 & h<0.2)&(s>0.6 & s<0.9)&(v>0.4&v<0.95));
-%idxBanana = find((h>0.1 & h<0.2)&(s>0.6 & s<0.8)&(v>0.4&v<0.8));
-idxBanana = find((h>0.1 & h<0.2)&(s>0.6 & s<0.95)&(v>0.4&v<0.95));
+idxBanana = find((h>=0.1 & h<=0.2)&(s>=0.6 & s<=0.95)&(v>=0.4&v<=0.95));
+idxOrange = find((h>=0&h<=0.12)&(s>=0.6&s<=1)&(v>=0.4&v<=1));
+idxApple = find((h>=0.95|h<=0.07)&(s>=0.4&s<=1)&(v>=0&v<=0.6));
+
 maskBanana(idxBanana) = 1;
 figure();imshow(maskBanana);
+
+maskOrange(idxOrange) = 1;
+
+maskApple(idxApple) = 1;
+
+maskAll = zeros(size(imgHSV,1),size(imgHSV,2), 3);
+maskAll(:,:,1) = maskBanana;
+maskAll(:,:,2) = maskOrange;
+maskAll(:,:,3) = maskApple;
+
+% imwrite(maskAll,'image3_all_masks.jpg');
 
 CC = bwconncomp(maskBanana,4);
 S = regionprops(CC,'Area','MajorAxisLength','MinorAxisLength','Centroid','BoundingBox','PixelIdxList');
@@ -94,45 +103,6 @@ for i=1:length(S2)
  img = insertText(img,S2(i).Centroid,num2str(i),'AnchorPoint','Center');
 end
 figure();imshow(img);
-% Update the Connected Components struct to only contain the objects we
-% care about
-% CC.NumObjects = size(S,1);
-% CC.PixelIdxList = {S.PixelIdxList};
-% L = labelmatrix(CC);
-% rgbLabel = label2rgb(L);
-% imtool(rgbLabel);
-
-%maskBanana = ismember(L, find([S.Area] >= maxPixels/2));
-%maskBanana = bwareaopen(maskBanana,10);
-%Calculate the Centroids of the CCs
-%S = regionprops(CC,'Centroid')
-
-% % Figure 2
-% h = fruit2HSV(:,:,1);
-% s = fruit2HSV(:,:,2);
-% v = fruit2HSV(:,:,3);
-% 
-% maskBanana = zeros(size(fruit2HSV,1),size(fruit2HSV,2));
-% 
-% % Banana
-% idxBanana = find((h>0.1 & h<0.2)&(s>0.6 & s<0.8)&(v>0.4&v<0.8));
-% maskBanana(idxBanana) = 1;
-% maskBanana = imclose(maskBanana,strel('disk',1));
-% imtool(maskBanana);
-% 
-% % Figure 3
-% h = fruit3HSV(:,:,1);
-% s = fruit3HSV(:,:,2);
-% v = fruit3HSV(:,:,3);
-% 
-% maskBanana = zeros(size(fruit3HSV,1),size(fruit3HSV,2));
-% 
-% % Banana
-% idxBanana = find((h>0.1 & h<0.2)&(s>0.6 & s<0.8)&(v>0.4&v<0.8));
-% maskBanana(idxBanana) = 1;
-% maskBanana = imclose(maskBanana,strel('disk',2));
-% imtool(maskBanana);
-
 %% Thresholds for the Oranges
 % Figure 1
 img = fruit2;
@@ -144,7 +114,7 @@ v = imgHSV(:,:,3);
 maskOrange = zeros(size(imgHSV,1),size(imgHSV,2));
 
 % Orange
-idxOrange = find((h>=0&h<0.12)&(s>0.6&s<=1)&(v>0.4&v<=1));
+idxOrange = find((h>=0&h<=0.12)&(s>=0.6&s<=1)&(v>=0.4&v<=1));
 maskOrange(idxOrange) = 1;
 imtool(maskOrange);
 
@@ -209,7 +179,7 @@ v = imgHSV(:,:,3);
 maskApple = zeros(size(imgHSV,1),size(imgHSV,2));
 
 % Apple
-idxApple = find((h>=0.95|h<=0.07)&(s>=0.4&s<=1)&(v>0&v<=0.6));
+idxApple = find((h>=0.95|h<=0.07)&(s>=0.4&s<=1)&(v>=0&v<=0.6));
 maskApple(idxApple) = 1;
 imtool(maskApple);
 
@@ -262,3 +232,4 @@ for i=1:length(S2)
  img = insertText(img,S2(i).Centroid,num2str(i),'AnchorPoint','Center');
 end
 figure();imshow(img);
+
