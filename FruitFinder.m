@@ -20,216 +20,187 @@ fruit4HSV = rgb2hsv(fruit4);
 % imwrite(fruit2HSV, 'fruit2HSV.jpg');
 % imwrite(fruit3HSV, 'fruit3HSV.jpg');
 
-imtool(fruit1HSV);
-imtool(fruit2HSV);
-imtool(fruit3HSV);
-imtool(fruit4HSV);
+% imtool(fruit1HSV);
+% imtool(fruit2HSV);
+% imtool(fruit3HSV);
+% imtool(fruit4HSV);
 %% Thresholds for the Banana
-% Figure 
+% Select which image to run the algorithm on
 img = fruit3;
-imgHSV = fruit3HSV;
-h = imgHSV(:,:,1);
-s = imgHSV(:,:,2);
-v = imgHSV(:,:,3);
 
+% Convert the image to HSV and extract each channel
+imgHSV = rgb2hsv(img);
+H = imgHSV(:,:,1);
+S = imgHSV(:,:,2);
+V = imgHSV(:,:,3);
+
+% Initialize the masks for bananas, oranges, and apples
 maskBanana = zeros(size(imgHSV,1),size(imgHSV,2));
 maskOrange = zeros(size(imgHSV,1),size(imgHSV,2));
 maskApple = zeros(size(imgHSV,1),size(imgHSV,2));
 
-idxBanana = find((h>=0.1 & h<=0.2)&(s>=0.6 & s<=0.95)&(v>=0.4&v<=0.95));
-idxOrange = find((h>=0&h<=0.12)&(s>=0.6&s<=1)&(v>=0.4&v<=1));
-idxApple = find((h>=0.95|h<=0.07)&(s>=0.4&s<=1)&(v>=0&v<=0.6));
+% Find the indices which match the Hue, Saturation, and Value thresholds
+idxBanana = find((H>=0.10&H<=0.20)&(S>=0.6&S<=0.95)&(V>=0.4&V<=0.95));
+idxOrange = find((H>=0.00&H<=0.12)&(S>=0.6&S<=1.00)&(V>=0.4&V<=1.00));
+idxApple =  find((H>=0.95|H<=0.07)&(S>=0.4&S<=1.00)&(V>=0.0&V<=0.60));
 
+% Create the masks for each fruit
 maskBanana(idxBanana) = 1;
-figure();imshow(maskBanana);
-
 maskOrange(idxOrange) = 1;
-
 maskApple(idxApple) = 1;
 
+% Combine the 3 masks into a single mask where Bananas are Red, Oranges are
+% Green, and Apples are Blue
 maskAll = zeros(size(imgHSV,1),size(imgHSV,2), 3);
 maskAll(:,:,1) = maskBanana;
 maskAll(:,:,2) = maskOrange;
 maskAll(:,:,3) = maskApple;
 
 % imwrite(maskAll,'image3_all_masks.jpg');
+imtool(maskAll);
 
-CC = bwconncomp(maskBanana,4);
-S = regionprops(CC,'Area','MajorAxisLength','MinorAxisLength','Centroid','BoundingBox','PixelIdxList');
-for i=1:size(S,1)
-    S(i).AspectRatio = S(i).MajorAxisLength/S(i).MinorAxisLength;
+% Generate connected components for each of the 3 masks
+CCBanana = bwconncomp(maskBanana,4);
+CCOrange = bwconncomp(maskOrange,4);
+CCApple = bwconncomp(maskApple,4);
+
+% Extract relevant properties of each connected component
+SBanana = regionprops(CCBanana,'Area','MajorAxisLength','MinorAxisLength','PixelIdxList');
+for i=1:size(SBanana,1)
+    SBanana(i).AspectRatio = SBanana(i).MajorAxisLength/SBanana(i).MinorAxisLength;
+end
+SOrange = regionprops(CCOrange,'Area','MajorAxisLength','MinorAxisLength','PixelIdxList');
+for i=1:size(SOrange,1)
+    SOrange(i).AspectRatio = SOrange(i).MajorAxisLength/SOrange(i).MinorAxisLength;
+end
+SApple = regionprops(CCApple,'Area','MajorAxisLength','MinorAxisLength','PixelIdxList');
+for i=1:size(SApple,1)
+    SApple(i).AspectRatio = SApple(i).MajorAxisLength/SApple(i).MinorAxisLength;
 end
 
-maxPixels = max([S.Area]);
-remove = find([S.Area] <= maxPixels/4);
-S(remove) = [];
-remove = find([S.AspectRatio] <= 1.8);
-S(remove) = [];
+% Filter out connected components if their proporties don't meet area or
+% aspect ratio criteria
+bananaMaxPixels = max([SBanana.Area]);
+remove = find([SBanana.Area] <= bananaMaxPixels/4);
+SBanana(remove) = [];
+remove = find([SBanana.AspectRatio] <= 1.8);
+SBanana(remove) = [];
+
+orangeMaxPixels = max([SOrange.Area]);
+remove = find([SOrange.Area] <= orangeMaxPixels/6);
+SOrange(remove) = [];
+remove = find([SOrange.AspectRatio] >= 2.5);
+SOrange(remove) = [];
+
+appleMaxPixels = max([SApple.Area]);
+remove = find([SApple.Area] <= appleMaxPixels/6);
+SApple(remove) = [];
+remove = find([SApple.AspectRatio] >= 2.5);
+SApple(remove) = [];
 
 % Create a new mask with only the pixels from the connected components that
 % passed the previous criteria (size and aspect ratio)
-newMask = zeros(size(maskBanana,1),size(maskBanana,2));
-newMask(cat(1,S.PixelIdxList)) = 1;
-figure();imshow(newMask);
+maskBanana2 = zeros(size(imgHSV,1),size(imgHSV,2));
+maskOrange2 = zeros(size(imgHSV,1),size(imgHSV,2));
+maskApple2 = zeros(size(imgHSV,1),size(imgHSV,2));
+maskBanana2(cat(1,SBanana.PixelIdxList)) = 1;
+maskOrange2(cat(1,SOrange.PixelIdxList)) = 1;
+maskApple2(cat(1,SApple.PixelIdxList)) = 1;
 
-% Now its time to use morphology to make sure that we have some good
+maskAll = zeros(size(imgHSV,1),size(imgHSV,2), 3);
+maskAll(:,:,1) = maskBanana2;
+maskAll(:,:,2) = maskOrange2;
+maskAll(:,:,3) = maskApple2;
+imtool(maskAll);
+
+% Use morphological operations to make sure that we have some good
 % connected components
 
-newMask2 = imopen(newMask,strel('diamond',1));
-newMask2 = imclose(newMask2,strel('diamond',1));
-figure();imshow(newMask2);
-
-CC2 = bwconncomp(newMask2,4);
-S2 = regionprops(CC2,'Area','MajorAxisLength','MinorAxisLength','Centroid','BoundingBox','PixelIdxList');
-for i=1:size(S2,1)
-    S2(i).AspectRatio = S2(i).MajorAxisLength/S2(i).MinorAxisLength;
-end
-
-maxPixels2 = max([S2.Area]);
-remove = find([S2.Area] <= maxPixels2/2);
-S2(remove) = [];
-remove = find([S2.AspectRatio] <= 1.8);
-S2(remove) = [];
-
-% Create a new mask with only the pixels from the connected components that
-% passed the previous criteria (size and aspect ratio)
-newMask3 = zeros(size(newMask2,1),size(newMask2,2));
-newMask3(cat(1,S2.PixelIdxList)) = 1;
-newMask3 = imfill(newMask3);
-figure();imshow(newMask3);
-
-for i=1:length(S2)
- img = insertShape(img,'Rectangle',S2(i).BoundingBox);
- img = insertText(img,S2(i).Centroid,num2str(i),'AnchorPoint','Center');
-end
-figure();imshow(img);
-%% Thresholds for the Oranges
-% Figure 1
-img = fruit2;
-imgHSV = fruit2HSV;
-h = imgHSV(:,:,1);
-s = imgHSV(:,:,2);
-v = imgHSV(:,:,3);
-
-maskOrange = zeros(size(imgHSV,1),size(imgHSV,2));
-
-% Orange
-idxOrange = find((h>=0&h<=0.12)&(s>=0.6&s<=1)&(v>=0.4&v<=1));
-maskOrange(idxOrange) = 1;
-imtool(maskOrange);
-
-CC = bwconncomp(maskOrange,4);
-S = regionprops(CC,'Area','MajorAxisLength','MinorAxisLength','Centroid','BoundingBox','PixelIdxList');
-for i=1:size(S,1)
-    S(i).AspectRatio = S(i).MajorAxisLength/S(i).MinorAxisLength;
-end
-
-maxPixels = max([S.Area]);
-remove = find([S.Area] <= maxPixels/6);
-S(remove) = [];
-% remove = find([S.AspectRatio] >= 2);
-% S(remove) = [];
-
-% Create a new mask with only the pixels from the connected components that
-% passed the previous criteria (size and aspect ratio)
-maskOrange2 = zeros(size(maskOrange,1),size(maskOrange,2));
-maskOrange2(cat(1,S.PixelIdxList)) = 1;
-imtool(maskOrange2);
-
-% Now its time to use morphology to make sure that we have some good
-% connected components
-
+maskBanana3 = imopen(maskBanana2,strel('diamond',1));
+maskBanana3 = imclose(maskBanana3,strel('diamond',1));
 maskOrange3 = imclose(maskOrange2,strel('disk',2));
 maskOrange3 = imopen(maskOrange3,strel('disk',2));
-%maskBanana = imdilate(maskBanana,strel('diamond',2));
-imtool(maskOrange3);
-
-CC2 = bwconncomp(maskOrange3,4);
-S2 = regionprops(CC2,'Area','MajorAxisLength','MinorAxisLength','Centroid','BoundingBox','PixelIdxList');
-for i=1:size(S2,1)
-    S2(i).AspectRatio = S2(i).MajorAxisLength/S2(i).MinorAxisLength;
-end
-
-maxPixels2 = max([S2.Area]);
-remove = find([S2.Area] <= maxPixels2/6);
-S2(remove) = [];
-% remove = find([S2.AspectRatio] >= 2);
-% S2(remove) = [];
-
-% Create a new mask with only the pixels from the connected components that
-% passed the previous criteria (size and aspect ratio)
-maskOrange4 = zeros(size(maskOrange3,1),size(maskOrange3,2));
-maskOrange4(cat(1,S2.PixelIdxList)) = 1;
-imtool(maskOrange4);
-
-for i=1:length(S2)
- img = insertShape(img,'Rectangle',S2(i).BoundingBox);
- img = insertText(img,S2(i).Centroid,num2str(i),'AnchorPoint','Center');
-end
-figure();imshow(img);
-
-%% Thresholds for the Apples
-% Figure 1
-img = fruit2;
-imgHSV = fruit2HSV;
-h = imgHSV(:,:,1);
-s = imgHSV(:,:,2);
-v = imgHSV(:,:,3);
-
-maskApple = zeros(size(imgHSV,1),size(imgHSV,2));
-
-% Apple
-idxApple = find((h>=0.95|h<=0.07)&(s>=0.4&s<=1)&(v>=0&v<=0.6));
-maskApple(idxApple) = 1;
-imtool(maskApple);
-
-CC = bwconncomp(maskApple,4);
-S = regionprops(CC,'Area','MajorAxisLength','MinorAxisLength','Centroid','BoundingBox','PixelIdxList');
-for i=1:size(S,1)
-    S(i).AspectRatio = S(i).MajorAxisLength/S(i).MinorAxisLength;
-end
-
-maxPixels = max([S.Area]);
-remove = find([S.Area] <= maxPixels/6);
-S(remove) = [];
-remove = find([S.AspectRatio] >= 2);
-S(remove) = [];
-
-% Create a new mask with only the pixels from the connected components that
-% passed the previous criteria (size and aspect ratio)
-maskApple2 = zeros(size(maskApple,1),size(maskApple,2));
-maskApple2(cat(1,S.PixelIdxList)) = 1;
-imtool(maskApple2);
-
-% Now its time to use morphology to make sure that we have some good
-% connected components
-
 maskApple3 = imclose(maskApple2,strel('disk',2));
 maskApple3 = imopen(maskApple3,strel('disk',2));
-%maskBanana = imdilate(maskBanana,strel('diamond',2));
-imtool(maskApple3);
 
-CC2 = bwconncomp(maskApple3,4);
-S2 = regionprops(CC2,'Area','MajorAxisLength','MinorAxisLength','Centroid','BoundingBox','PixelIdxList');
-for i=1:size(S2,1)
-    S2(i).AspectRatio = S2(i).MajorAxisLength/S2(i).MinorAxisLength;
+maskAll = zeros(size(imgHSV,1),size(imgHSV,2), 3);
+maskAll(:,:,1) = maskBanana3;
+maskAll(:,:,2) = maskOrange3;
+maskAll(:,:,3) = maskApple3;
+imtool(maskAll);
+
+% Again, generate connected components for each of the 3 masks.  These
+% masks are the result of the morphological operations
+CCBanana = bwconncomp(maskBanana3,4);
+CCOrange = bwconncomp(maskOrange3,4);
+CCApple = bwconncomp(maskApple3,4);
+
+% Extract relevant properties of each connected component
+SBanana = regionprops(CCBanana,'Area','MajorAxisLength','MinorAxisLength','Centroid','BoundingBox','PixelIdxList');
+for i=1:size(SBanana,1)
+    SBanana(i).AspectRatio = SBanana(i).MajorAxisLength/SBanana(i).MinorAxisLength;
+end
+SOrange = regionprops(CCOrange,'Area','MajorAxisLength','MinorAxisLength','Centroid','BoundingBox','PixelIdxList');
+for i=1:size(SOrange,1)
+    SOrange(i).AspectRatio = SOrange(i).MajorAxisLength/SOrange(i).MinorAxisLength;
+end
+SApple = regionprops(CCApple,'Area','MajorAxisLength','MinorAxisLength','Centroid','BoundingBox','PixelIdxList');
+for i=1:size(SApple,1)
+    SApple(i).AspectRatio = SApple(i).MajorAxisLength/SApple(i).MinorAxisLength;
 end
 
-maxPixels2 = max([S2.Area]);
-remove = find([S2.Area] <= maxPixels2/6);
-S2(remove) = [];
-remove = find([S2.AspectRatio] >= 2);
-S2(remove) = [];
+% Filter out connected components if their proporties don't meet area or
+% aspect ratio criteria
+bananaMaxPixels = max([SBanana.Area]);
+remove = find([SBanana.Area] <= bananaMaxPixels/2);
+SBanana(remove) = [];
+remove = find([SBanana.AspectRatio] <= 1.8);
+SBanana(remove) = [];
+
+orangeMaxPixels = max([SOrange.Area]);
+remove = find([SOrange.Area] <= orangeMaxPixels/6);
+SOrange(remove) = [];
+remove = find([SOrange.AspectRatio] >= 2.5);
+SOrange(remove) = [];
+
+appleMaxPixels = max([SApple.Area]);
+remove = find([SApple.Area] <= appleMaxPixels/6);
+SApple(remove) = [];
+remove = find([SApple.AspectRatio] >= 2.5);
+SApple(remove) = [];
 
 % Create a new mask with only the pixels from the connected components that
 % passed the previous criteria (size and aspect ratio)
-maskApple4 = zeros(size(maskApple3,1),size(maskApple3,2));
-maskApple4(cat(1,S2.PixelIdxList)) = 1;
-imtool(maskApple4);
+maskBanana4 = zeros(size(imgHSV,1),size(imgHSV,2));
+maskOrange4 = zeros(size(imgHSV,1),size(imgHSV,2));
+maskApple4 = zeros(size(imgHSV,1),size(imgHSV,2));
+maskBanana4(cat(1,SBanana.PixelIdxList)) = 1;
+maskBanana4 = imfill(maskBanana4);
+maskOrange4(cat(1,SOrange.PixelIdxList)) = 1;
+maskApple4(cat(1,SApple.PixelIdxList)) = 1;
 
-for i=1:length(S2)
- img = insertShape(img,'Rectangle',S2(i).BoundingBox);
- img = insertText(img,S2(i).Centroid,num2str(i),'AnchorPoint','Center');
+maskAll = zeros(size(imgHSV,1),size(imgHSV,2), 3);
+maskAll(:,:,1) = maskBanana4;
+maskAll(:,:,2) = maskOrange4;
+maskAll(:,:,3) = maskApple4;
+imtool(maskAll);
+
+for i=1:length(SBanana)
+ img = insertShape(img,'Rectangle',SBanana(i).BoundingBox,'Color','yellow','Opacity',0.4);
+ img = insertText(img,SBanana(i).Centroid,num2str(i),'AnchorPoint','LeftCenter','BoxOpacity',0);
+ img = insertShape(img,'FilledRectangle',[SBanana(i).Centroid 3 3],'Color','cyan','Opacity',1);
 end
+for j=1:length(SOrange)
+ img = insertShape(img,'Rectangle',SOrange(j).BoundingBox,'Color',[255,127,0],'Opacity',0.4);
+ img = insertText(img,SOrange(j).Centroid,num2str(j),'AnchorPoint','LeftCenter','BoxOpacity',0);
+ img = insertShape(img,'FilledRectangle',[SOrange(j).Centroid 3 3],'Color','cyan','Opacity',1);
+end
+for k=1:length(SApple)
+ img = insertShape(img,'Rectangle',SApple(k).BoundingBox,'Color','red','Opacity',0.4);
+ img = insertText(img,SApple(k).Centroid,num2str(k),'AnchorPoint','LeftCenter','BoxOpacity',0,'TextColor','white');
+ img = insertShape(img,'FilledRectangle',[SApple(k).Centroid 3 3],'Color','cyan','Opacity',1);
+end
+text = append('Fruit Counts: Bananas-',num2str(i),'  Oranges-',num2str(j),'  Apples-',num2str(k));
+img = insertText(img,[size(img,1) 0],text,'AnchorPoint','RightTop','BoxOpacity',0,'TextColor','black');
 figure();imshow(img);
 
