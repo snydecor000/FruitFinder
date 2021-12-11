@@ -1,35 +1,35 @@
-%% Load in the Fruit
+% Fruit Finder Project
+% Jordan Asman and Cory Snyder
+%
+% The purpose of this project is to take an image as an input and 
+% find the apples, oranges, and bananas that are within the image
+%
+% Our approach uses HSV thresholds to create an initial mask.  This initial
+% mask is then put through 2 rounds of connected component filtering and a
+% round of morphological operations.  The output is a version of the input
+% image that has each fruit's bounding boxes and centroid locations
+% overlayed.
+
+% Load in the Fruit Images
 close all;
 imtool close all;
 fruit1 = imread('fruit/mixed_fruit1.tiff');
 fruit2 = imread('fruit/mixed_fruit2.tiff');
 fruit3 = imread('fruit/mixed_fruit3.tiff');
 fruit4 = imread('fruit/fruit_tray.tiff');
-%% Display the Fruit
-figure();imshow(fruit1);
-figure();imshow(fruit2);
-figure();imshow(fruit3);
-figure();imshow(fruit4);
 
-fruit1HSV = rgb2hsv(fruit1);
-fruit2HSV = rgb2hsv(fruit2);
-fruit3HSV = rgb2hsv(fruit3);
-fruit4HSV = rgb2hsv(fruit4);
+% Display the Fruit
+% figure();imshow(fruit1);
+% figure();imshow(fruit2);
+% figure();imshow(fruit3);
+% figure();imshow(fruit4);
 
-% imwrite(fruit1HSV, 'fruit1HSV.jpg');
-% imwrite(fruit2HSV, 'fruit2HSV.jpg');
-% imwrite(fruit3HSV, 'fruit3HSV.jpg');
-
-% imtool(fruit1HSV);
-% imtool(fruit2HSV);
-% imtool(fruit3HSV);
-% imtool(fruit4HSV);
-%% Thresholds for the Banana
 % Select which image to run the algorithm on
-img = fruit3;
+img = fruit1;
 
 % Convert the image to HSV and extract each channel
 imgHSV = rgb2hsv(img);
+% imtool(imgHSV);
 H = imgHSV(:,:,1);
 S = imgHSV(:,:,2);
 V = imgHSV(:,:,3);
@@ -56,8 +56,7 @@ maskAll(:,:,1) = maskBanana;
 maskAll(:,:,2) = maskOrange;
 maskAll(:,:,3) = maskApple;
 
-% imwrite(maskAll,'image3_all_masks.jpg');
-imtool(maskAll);
+% imwrite(maskAll,'image4_all_masks.png');
 
 % Generate connected components for each of the 3 masks
 CCBanana = bwconncomp(maskBanana,4);
@@ -81,7 +80,7 @@ end
 % Filter out connected components if their proporties don't meet area or
 % aspect ratio criteria
 bananaMaxPixels = max([SBanana.Area]);
-remove = find([SBanana.Area] <= bananaMaxPixels/4);
+remove = find([SBanana.Area] <= bananaMaxPixels/6);
 SBanana(remove) = [];
 remove = find([SBanana.AspectRatio] <= 1.8);
 SBanana(remove) = [];
@@ -111,7 +110,7 @@ maskAll = zeros(size(imgHSV,1),size(imgHSV,2), 3);
 maskAll(:,:,1) = maskBanana2;
 maskAll(:,:,2) = maskOrange2;
 maskAll(:,:,3) = maskApple2;
-imtool(maskAll);
+% imwrite(maskAll,'image4_all_masks2.png');
 
 % Use morphological operations to make sure that we have some good
 % connected components
@@ -127,7 +126,7 @@ maskAll = zeros(size(imgHSV,1),size(imgHSV,2), 3);
 maskAll(:,:,1) = maskBanana3;
 maskAll(:,:,2) = maskOrange3;
 maskAll(:,:,3) = maskApple3;
-imtool(maskAll);
+% imwrite(maskAll,'image4_all_masks3.png');
 
 % Again, generate connected components for each of the 3 masks.  These
 % masks are the result of the morphological operations
@@ -152,7 +151,7 @@ end
 % Filter out connected components if their proporties don't meet area or
 % aspect ratio criteria
 bananaMaxPixels = max([SBanana.Area]);
-remove = find([SBanana.Area] <= bananaMaxPixels/2);
+remove = find([SBanana.Area] <= bananaMaxPixels/6);
 SBanana(remove) = [];
 remove = find([SBanana.AspectRatio] <= 1.8);
 SBanana(remove) = [];
@@ -183,8 +182,10 @@ maskAll = zeros(size(imgHSV,1),size(imgHSV,2), 3);
 maskAll(:,:,1) = maskBanana4;
 maskAll(:,:,2) = maskOrange4;
 maskAll(:,:,3) = maskApple4;
-imtool(maskAll);
+% imwrite(maskAll,'image4_all_masks4.png');
 
+% Overlay a square at the centroid of each fruit, the bounding box for each
+% fruit, and text displaying the count of each fruit type
 for i=1:length(SBanana)
  img = insertShape(img,'Rectangle',SBanana(i).BoundingBox,'Color','yellow','Opacity',0.4);
  img = insertText(img,SBanana(i).Centroid,num2str(i),'AnchorPoint','LeftCenter','BoxOpacity',0);
@@ -203,4 +204,5 @@ end
 text = append('Fruit Counts: Bananas-',num2str(i),'  Oranges-',num2str(j),'  Apples-',num2str(k));
 img = insertText(img,[size(img,1) 0],text,'AnchorPoint','RightTop','BoxOpacity',0,'TextColor','black');
 figure();imshow(img);
+% imwrite(img,'image4_result.png');
 
